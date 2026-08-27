@@ -1,2 +1,7 @@
-// Keep privileged Electron/Node APIs out of the renderer by default.
-// Add a deliberately small API here when the UI needs native capabilities.
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('desktop', {
+  chooseFolder: () => ipcRenderer.invoke('folder:choose'),
+  readFolder: (directoryPath) => ipcRenderer.invoke('folder:read', directoryPath),
+  readTextFile: (filePath) => ipcRenderer.invoke('file:read-text', filePath),
+});
