@@ -4,7 +4,9 @@ const path = require('node:path');
 
 const TEXT_EXTENSIONS = new Set(['.css', '.csv', '.html', '.js', '.json', '.md', '.mjs', '.txt', '.ts', '.yaml', '.yml']);
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const SETTINGS_PATH = path.join(__dirname, '.thinking-routine.json');
 let selectedRoot = null;
+let landingDocument = null;
 
 function isInsideSelectedRoot(candidatePath) {
   if (!selectedRoot) return false;
@@ -23,12 +25,49 @@ function isTextDocument(filePath) {
   return TEXT_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
+async function saveSettings() {
+  await fs.writeFile(SETTINGS_PATH, `${JSON.stringify({
+    selectedRoot,
+    pages: { landing: { document: landingDocument } },
+  }, null, 2)}\n`, 'utf8');
+}
+
+async function restoreSelectedRoot() {
+  try {
+    const settings = JSON.parse(await fs.readFile(SETTINGS_PATH, 'utf8'));
+    selectedRoot = await fs.realpath(settings.selectedRoot);
+    landingDocument = typeof settings.pages?.landing?.document === 'string'
+      ? settings.pages.landing.document
+      : null;
+    return { name: path.basename(selectedRoot), path: selectedRoot };
+  } catch {
+    selectedRoot = null;
+    landingDocument = null;
+    return null;
+  }
+}
+
 ipcMain.handle('folder:choose', async () => {
   const result = await dialog.showOpenDialog({ title: 'Choose a folder to browse', properties: ['openDirectory'] });
   if (result.canceled || result.filePaths.length === 0) return null;
   selectedRoot = await fs.realpath(result.filePaths[0]);
+  landingDocument = null;
+  await saveSettings();
   return { name: path.basename(selectedRoot), path: selectedRoot };
 });
+
+ipcMain.handle('folder:restore', restoreSelectedRoot);
+
+async function readTextDocument(filePath) {
+  const safeFilePath = await resolveSafePath(filePath);
+  const stats = await fs.stat(safeFilePath);
+  if (!stats.isFile() || !isTextDocument(safeFilePath)) throw new Error('This is not a supported text document.');
+  if (stats.size > MAX_FILE_SIZE) throw new Error('This file is too large to display (maximum 2 MB).');
+  return {
+    relativePath: path.relative(selectedRoot, safeFilePath),
+    content: await fs.readFile(safeFilePath, 'utf8'),
+  };
+}
 
 ipcMain.handle('folder:read', async (_event, directoryPath) => {
   const safeDirectoryPath = await resolveSafePath(directoryPath);
@@ -50,15 +89,18 @@ ipcMain.handle('folder:read', async (_event, directoryPath) => {
     : left.name.localeCompare(right.name, undefined, { numeric: true }));
 });
 
-ipcMain.handle('file:read-text', async (_event, filePath) => {
-  const safeFilePath = await resolveSafePath(filePath);
-  const stats = await fs.stat(safeFilePath);
-  if (!stats.isFile() || !isTextDocument(safeFilePath)) throw new Error('This is not a supported text document.');
-  if (stats.size > MAX_FILE_SIZE) throw new Error('This file is too large to display (maximum 2 MB).');
-  return {
-    relativePath: path.relative(selectedRoot, safeFilePath),
-    content: await fs.readFile(safeFilePath, 'utf8'),
-  };
+ipcMain.handle('file:read-text', (_event, filePath) => readTextDocument(filePath));
+
+ipcMain.handle('page:set-landing', async (_event, filePath) => {
+  const document = await readTextDocument(filePath);
+  landingDocument = document.relativePath;
+  await saveSettings();
+  return { document: landingDocument };
+});
+
+ipcMain.handle('page:get-landing', async () => {
+  if (!selectedRoot || !landingDocument) return null;
+  return readTextDocument(path.resolve(selectedRoot, landingDocument));
 });
 
 function createWindow() {

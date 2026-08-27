@@ -12,15 +12,24 @@
       <aside class="sidebar" aria-label="Folder browser">
         <div class="sidebar-header">
           <p class="eyebrow">Thinking Routine</p>
-          <button id="choose-folder" type="button">Open folder</button>
+          <div class="sidebar-actions">
+            <button id="refresh-folder" type="button" disabled>Refresh</button>
+            <button id="choose-folder" type="button">Open folder</button>
+          </div>
         </div>
         <p id="folder-name" class="folder-name">No folder selected</p>
+        <nav class="app-navigation" aria-label="App pages">
+          <button id="landing-page" class="page-button" type="button" disabled>Landing</button>
+        </nav>
         <div id="tree" class="tree" role="tree" aria-label="Folder tree">
           <p class="tree-empty">Choose a folder to see its documents.</p>
         </div>
       </aside>
       <main class="document-viewer">
-        <div class="document-header"><p id="document-path" class="document-path">Document viewer</p></div>
+        <div class="document-header">
+          <p id="document-path" class="document-path">Document viewer</p>
+          <button id="set-landing" type="button" disabled>Set as landing</button>
+        </div>
         <div id="document-content" class="document-content" tabindex="0">
           <div class="empty-state">
             <h1>Your documents, in one place.</h1>

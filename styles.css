@@ -23,7 +23,13 @@ body {
 
 .sidebar { box-sizing: border-box; min-width: 0; padding: 1.5rem 1rem; border-right: 1px solid #34333f; background: #1d1c24; }
 .sidebar-header { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; }
+.sidebar-actions { display: flex; gap: 0.35rem; }
+.sidebar-actions button { font-size: 0.8rem; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
 .folder-name { overflow: hidden; margin: 1.5rem 0 0.5rem; color: #cecadc; font-size: 0.85rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.app-navigation { margin: 0 0 0.75rem; }
+.page-button { width: 100%; background: #302e3b; color: #cecadc; font-size: 0.8rem; }
+.page-button.selected { background: #5d45ba; color: #fff; }
 
 button {
   border: 0;
@@ -48,7 +54,8 @@ button:hover { background: #a28aff; }
 .tree-empty, .tree-status { margin: 0.75rem 0.5rem; color: #a8a4b3; font-size: 0.875rem; line-height: 1.4; }
 .tree-status.error { color: #ffb4ab; }
 .document-viewer { display: grid; min-width: 0; grid-template-rows: auto 1fr; background: #15151b; }
-.document-header { padding: 1rem 2rem; border-bottom: 1px solid #34333f; }
+.document-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; border-bottom: 1px solid #34333f; }
+.document-header button { flex: 0 0 auto; font-size: 0.8rem; }
 .document-path { overflow: hidden; margin: 0; color: #b8a5ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; text-overflow: ellipsis; white-space: nowrap; }
 .document-content { min-width: 0; overflow: auto; padding: 2rem; outline: none; }
 .document-content pre { margin: 0; color: #e7e3ef; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; line-height: 1.65; tab-size: 2; white-space: pre-wrap; word-break: break-word; }

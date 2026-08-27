@@ -1,9 +1,20 @@
 const chooseFolderButton = document.querySelector('#choose-folder');
+const refreshFolderButton = document.querySelector('#refresh-folder');
+const landingPageButton = document.querySelector('#landing-page');
+const setLandingButton = document.querySelector('#set-landing');
 const folderName = document.querySelector('#folder-name');
 const tree = document.querySelector('#tree');
 const documentPath = document.querySelector('#document-path');
 const documentContent = document.querySelector('#document-content');
 let selectedFileButton = null;
+let currentFolder = null;
+let selectedFilePath = null;
+let currentView = 'files';
+
+function setCurrentView(view) {
+  currentView = view;
+  landingPageButton.classList.toggle('selected', view === 'landing');
+}
 
 function showTreeMessage(message) {
   tree.replaceChildren();
@@ -98,9 +109,14 @@ async function openDocument(filePath, button) {
     code.textContent = file.content;
     documentContent.replaceChildren(code);
     documentPath.textContent = file.relativePath;
-    selectedFileButton?.classList.remove('selected');
-    button.classList.add('selected');
-    selectedFileButton = button;
+    if (button) {
+      selectedFileButton?.classList.remove('selected');
+      button.classList.add('selected');
+      selectedFileButton = button;
+    }
+    selectedFilePath = filePath;
+    setLandingButton.disabled = false;
+    setCurrentView('files');
     documentContent.focus();
   } catch (error) {
     documentPath.textContent = 'Unable to open document';
@@ -108,10 +124,9 @@ async function openDocument(filePath, button) {
   }
 }
 
-chooseFolderButton.addEventListener('click', async () => {
-  const folder = await window.desktop.chooseFolder();
-  if (!folder) return;
+async function loadFolder(folder, { refreshDocument = false } = {}) {
   selectedFileButton = null;
+  currentFolder = folder;
   folderName.textContent = folder.name;
   showTreeMessage('Loading documents…');
   documentPath.textContent = 'Document viewer';
@@ -120,7 +135,59 @@ chooseFolderButton.addEventListener('click', async () => {
     const entries = await window.desktop.readFolder(folder.path);
     tree.replaceChildren(...entries.map(createTreeEntry));
     if (entries.length === 0) showTreeMessage('No supported documents found.');
+    refreshFolderButton.disabled = false;
+    landingPageButton.disabled = false;
+    if (refreshDocument) {
+      if (currentView === 'landing') await showLandingPage();
+      else if (selectedFilePath) await openDocument(selectedFilePath);
+    }
   } catch (error) {
     showTreeMessage(`Could not read folder: ${error.message}`);
   }
+}
+
+chooseFolderButton.addEventListener('click', async () => {
+  const folder = await window.desktop.chooseFolder();
+  if (!folder) return;
+  selectedFilePath = null;
+  setLandingButton.disabled = true;
+  setCurrentView('files');
+  await loadFolder(folder);
+});
+
+refreshFolderButton.addEventListener('click', async () => {
+  if (!currentFolder) return;
+  await loadFolder(currentFolder, { refreshDocument: true });
+});
+
+window.desktop.restoreFolder().then((folder) => {
+  if (folder) loadFolder(folder).then(showLandingPage);
+});
+
+async function showLandingPage() {
+  setCurrentView('landing');
+  documentPath.textContent = 'Landing page';
+  setLandingButton.disabled = true;
+  try {
+    const landingPage = await window.desktop.getLandingPage();
+    if (!landingPage) {
+      showDocumentMessage('No landing page yet.', 'Open a document in Files, then choose “Set as landing”.');
+      return;
+    }
+    const code = document.createElement('pre');
+    code.textContent = landingPage.content;
+    documentContent.replaceChildren(code);
+    documentPath.textContent = `Landing · ${landingPage.relativePath}`;
+  } catch (error) {
+    showDocumentMessage('Could not open the landing page.', error.message);
+  }
+}
+
+landingPageButton.addEventListener('click', showLandingPage);
+
+setLandingButton.addEventListener('click', async () => {
+  if (!selectedFilePath) return;
+  await window.desktop.setLandingPage(selectedFilePath);
+  setLandingButton.textContent = 'Landing page set';
+  setTimeout(() => { setLandingButton.textContent = 'Set as landing'; }, 1500);
 });
