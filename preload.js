@@ -7,4 +7,9 @@ contextBridge.exposeInMainWorld('desktop', {
   readTextFile: (filePath) => ipcRenderer.invoke('file:read-text', filePath),
   setLandingPage: (filePath) => ipcRenderer.invoke('page:set-landing', filePath),
   getLandingPage: () => ipcRenderer.invoke('page:get-landing'),
+  getPomodoroHistory: () => ipcRenderer.invoke('pomodoro:get-history'),
+  getPomodoroState: () => ipcRenderer.invoke('pomodoro:get-state'),
+  startPomodoro: (message) => ipcRenderer.invoke('pomodoro:start', message),
+  completePomodoro: () => ipcRenderer.invoke('pomodoro:complete'),
+  resetPomodoro: () => ipcRenderer.invoke('pomodoro:reset'),
 });

@@ -7,6 +7,8 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const SETTINGS_PATH = path.join(__dirname, '.thinking-routine.json');
 let selectedRoot = null;
 let landingDocument = null;
+let pomodoroHistory = [];
+let activePomodoro = null;
 
 function isInsideSelectedRoot(candidatePath) {
   if (!selectedRoot) return false;
@@ -29,16 +31,23 @@ async function saveSettings() {
   await fs.writeFile(SETTINGS_PATH, `${JSON.stringify({
     selectedRoot,
     pages: { landing: { document: landingDocument } },
+    pomodoroHistory,
+    activePomodoro,
   }, null, 2)}\n`, 'utf8');
 }
 
 async function restoreSelectedRoot() {
   try {
     const settings = JSON.parse(await fs.readFile(SETTINGS_PATH, 'utf8'));
-    selectedRoot = await fs.realpath(settings.selectedRoot);
     landingDocument = typeof settings.pages?.landing?.document === 'string'
       ? settings.pages.landing.document
       : null;
+    pomodoroHistory = Array.isArray(settings.pomodoroHistory) ? settings.pomodoroHistory : [];
+    activePomodoro = typeof settings.activePomodoro?.endsAt === 'string'
+      && typeof settings.activePomodoro?.message === 'string'
+      ? settings.activePomodoro
+      : null;
+    selectedRoot = await fs.realpath(settings.selectedRoot);
     return { name: path.basename(selectedRoot), path: selectedRoot };
   } catch {
     selectedRoot = null;
@@ -101,6 +110,48 @@ ipcMain.handle('page:set-landing', async (_event, filePath) => {
 ipcMain.handle('page:get-landing', async () => {
   if (!selectedRoot || !landingDocument) return null;
   return readTextDocument(path.resolve(selectedRoot, landingDocument));
+});
+
+ipcMain.handle('pomodoro:get-history', () => pomodoroHistory);
+
+async function completeActivePomodoro() {
+  if (!activePomodoro) return pomodoroHistory;
+  const entry = {
+    message: activePomodoro.message,
+    completedAt: activePomodoro.endsAt,
+  };
+  activePomodoro = null;
+  pomodoroHistory = [entry, ...pomodoroHistory].slice(0, 100);
+  await saveSettings();
+  return pomodoroHistory;
+}
+
+async function getActivePomodoro() {
+  if (activePomodoro && new Date(activePomodoro.endsAt).getTime() <= Date.now()) {
+    await completeActivePomodoro();
+  }
+  return activePomodoro;
+}
+
+ipcMain.handle('pomodoro:get-state', getActivePomodoro);
+
+ipcMain.handle('pomodoro:start', async (_event, message) => {
+  const safeMessage = typeof message === 'string' && message.trim()
+    ? message.trim().slice(0, 200)
+    : 'Focus session';
+  activePomodoro = {
+    message: safeMessage,
+    endsAt: new Date(Date.now() + 25 * 60 * 1000).toISOString(),
+  };
+  await saveSettings();
+  return activePomodoro;
+});
+
+ipcMain.handle('pomodoro:complete', completeActivePomodoro);
+
+ipcMain.handle('pomodoro:reset', async () => {
+  activePomodoro = null;
+  await saveSettings();
 });
 
 function createWindow() {
